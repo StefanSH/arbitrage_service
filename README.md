@@ -3,9 +3,9 @@ Microservice based on https://github.com/claygod/microservice</br>/
 Сервис получает данные через публичные api двух популярных криптовалютных бирж(Binance и OKEx), находит общие для обеих бирж торговые пары и отдает в виде JSON пары с разницей в цене между биржами > 1%
 
 ## Dependencies
-github.com/Sirupsen/logrus
-github.com/shopspring/decimal
-github.com/StefanSH/arbitrage_service/crypto
+github.com/Sirupsen/logrus</br>
+github.com/shopspring/decimal</br>
+github.com/StefanSH/arbitrage_service/crypto</br>
 github.com/claygod/BxogV2
 
 ## Build and Start
