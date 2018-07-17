@@ -1,0 +1,11 @@
+
+# When you change the structure of the configuration file,
+# make sure the same changes need to be made to `config.go`
+
+[Main]
+Port = "80"
+Name = "Microservice"
+
+[Session]
+Secure	= "something-very-secret"
+Name	= "session-name"
