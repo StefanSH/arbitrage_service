@@ -7,7 +7,7 @@ Based on https://github.com/claygod/microservice.
 ```golang
 git clone github.com/StefanSH/arbitrage_service
 go get
-go run ./
+sudo go run ./
 ```
 
 ```GET
