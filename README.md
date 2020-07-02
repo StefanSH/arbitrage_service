@@ -2,11 +2,12 @@
 Based on https://github.com/claygod/microservice.
 Сервис получает данные через публичные api двух популярных криптовалютных бирж(Binance и OKEx), находит общие для обеих бирж торговые пары и отдает в виде JSON пары с разницей в цене между биржами
 
-## RUN
+## Run
 
 ```golang
 git clone github.com/StefanSH/arbitrage_service
 go get
+go run ./
 ```
 
 ```GET
