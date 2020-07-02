@@ -1,7 +1,10 @@
 package main
 
-import "net/http"
-import "github.com/Sirupsen/logrus"
+import (
+	"net/http"
+
+	"github.com/sirupsen/logrus"
+)
 
 //import "context"
 

@@ -1,11 +1,11 @@
 package main
 
 import (
-	"Tinkoff/crypto"
+	"arbitrage_service/crypto"
 	"os"
 
-	log "github.com/Sirupsen/logrus"
 	b "github.com/claygod/BxogV2"
+	log "github.com/sirupsen/logrus"
 )
 
 // Main

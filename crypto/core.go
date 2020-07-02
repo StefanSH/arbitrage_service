@@ -1,103 +1,147 @@
 package crypto
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"sort"
 	"sync"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/shopspring/decimal"
 )
 
-func getTickersData(url string) []byte {
+type Ticker interface {
+	GetTickName() string
+	GetPrice() string
+	GetData() (interface{}, error)
+}
+
+func getTickersData(url string) ([]byte, error) {
 	response, err := http.Get(url)
 	if err != nil {
-		log.Errorf("Error:%s %s doesn't response", err, url)
+		return nil, fmt.Errorf("error:%s %s doesn't response", err, url)
 	}
 	defer response.Body.Close()
 	contents, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		log.Errorf("Error:%s Failed to read response", err)
+		return nil, fmt.Errorf("error:%s Failed to read response", err)
 	}
-	return contents
+	return contents, nil
 }
 
-func findCommonTikckers(binanceTickers []*binTicker, okexTickers []*okTicker) []*commonTicker {
-	var common []*commonTicker
-	var wg sync.WaitGroup
-	wg.Add(1)
+func findCommonTikckers(firstTickers, secondTickers []*Ticker) ([]*commonTicker, error) {
+	if len(firstTickers) == 0 || len(secondTickers) == 0 {
+		return nil, fmt.Errorf("one or two exhages data is nil")
+	}
+
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
 	go func() {
-		sort.Slice(binanceTickers, func(i, j int) bool {
-			return binanceTickers[i].Name < binanceTickers[j].Name
+		sort.Slice(firstTickers, func(i, j int) bool {
+			ticksI := *firstTickers[i]
+			ticksJ := *firstTickers[j]
+			return ticksI.GetTickName() < ticksJ.GetTickName()
 		})
 		wg.Done()
 	}()
-	wg.Add(1)
 	go func() {
-		sort.Slice(okexTickers, func(i, j int) bool {
-			return okexTickers[i].Name < okexTickers[j].Name
+		sort.Slice(secondTickers, func(i, j int) bool {
+			ticksI := *secondTickers[i]
+			ticksJ := *secondTickers[j]
+			return ticksI.GetTickName() < ticksJ.GetTickName()
 		})
 		wg.Done()
 	}()
 	wg.Wait()
-	for i := range binanceTickers {
-		for j := range okexTickers {
-			if binanceTickers[i].Name == okexTickers[j].Name {
-				decBinPrice, _ := decimal.NewFromString(binanceTickers[i].Price)
-				decOkPrice, _ := decimal.NewFromString(okexTickers[j].Price)
-				common = append(common, &commonTicker{
-					Name:     binanceTickers[i].Name,
-					BinPrice: decBinPrice,
-					OkPrice:  decOkPrice})
+	return compare(firstTickers, secondTickers), nil
+}
+
+func compare(ticks1, ticks2 []*Ticker) []*commonTicker {
+	common := make([]*commonTicker, 0)
+	if len(ticks1) > len(ticks2) {
+		for i := range ticks1 {
+			t1 := *ticks1[i]
+			for j := range ticks2 {
+				t2 := *ticks2[j]
+				if t1.GetTickName() == t2.GetTickName() {
+					firstPrice, _ := decimal.NewFromString(t1.GetPrice())
+					secondPrice, _ := decimal.NewFromString(t2.GetPrice())
+					common = append(common, &commonTicker{
+						Name:     t1.GetTickName(),
+						FirstPrice: firstPrice,
+						SecondPrice:  secondPrice})
+				}
+			}
+		}
+	} else {
+		for i := range ticks2 {
+			t2 := *ticks2[i]
+			for j := range ticks1 {
+				t1 := *ticks1[j]
+				if t1.GetTickName() == t2.GetTickName() {
+					firstPrice, _ := decimal.NewFromString(t1.GetPrice())
+					secondPrice, _ := decimal.NewFromString(t2.GetPrice())
+					common = append(common, &commonTicker{
+						Name:     t1.GetTickName(),
+						FirstPrice: firstPrice,
+						SecondPrice:  secondPrice})
+				}
 			}
 		}
 	}
+
 	return common
 }
 
-func getOkexData(out chan []*okTicker) {
-	var temp *OkexData
-	data := getTickersData("https://www.okex.com/api/v1/tickers.do")
-	err := json.Unmarshal(data, &temp)
-	if err != nil {
-		log.Errorf("Error:%s Failed to Unmarshal json", err)
+func NewTickerFromName(name string) (Ticker, error) {
+	switch name {
+	case "binance":
+		return &BinTicker{} , nil
+	case "okex":
+		return &OkTicker{} , nil
+	default:
+		return nil, fmt.Errorf("exhange %s - not found", name)
 	}
-	for _, ticker := range temp.Data {
-		ticker.formatSymbol()
-	}
-	okexTickers := temp.Data
-	out <- okexTickers
 }
 
-func getBinanceData(out chan []*binTicker) {
-	var temp []*binTicker
-	data := getTickersData("https://api.binance.com/api/v3/ticker/price")
-	err := json.Unmarshal(data, &temp)
-	if err != nil {
-		fmt.Println("Failed to unmarshal binance", err)
+func typeCast(i interface{}) []*Ticker {
+	switch i.(type) {
+	case []*OkTicker:
+		result := make([]*Ticker, 0)
+		for _, tick := range i.([]*OkTicker) {
+			ticker := Ticker(tick)
+			result = append(result, &ticker)
+		}
+		return result
+	case []*BinTicker:
+		result := make([]*Ticker, 0)
+		for _, tick := range i.([]*BinTicker) {
+			ticker := Ticker(tick)
+			result = append(result, &ticker)
+		}
+		return result
+	default:
+		return nil
 	}
-	out <- temp
+
 }
 
-func findTIckersWithDelta(commonTickers []*commonTicker) []*commonTicker {
+func findTickersWithDelta(commonTickers []*commonTicker) []*commonTicker {
 	var deltaTickers []*commonTicker
 	for _, ticker := range commonTickers {
-		if ticker.BinPrice.GreaterThan(ticker.OkPrice) {
-			delta := decimal.Sum(ticker.BinPrice.Div(ticker.OkPrice), decimal.New(-1, 0)).Mul(decimal.New(100, 0))
+		if ticker.FirstPrice.GreaterThan(ticker.SecondPrice) {
+			delta := decimal.Sum(ticker.FirstPrice, decimal.New(-1, 0).Mul(ticker.SecondPrice))
 			if delta.GreaterThan(decimal.New(1, 0)) {
-				ticker.Delta = delta.Round(4)
+				ticker.Delta = delta
+				ticker.Percent = delta.Div(ticker.FirstPrice.Div(decimal.New(100, 0))).Round(4)
 				deltaTickers = append(deltaTickers, ticker)
 			}
 		} else {
-			delta := decimal.Sum(ticker.OkPrice.Div(ticker.BinPrice), decimal.New(-1, 0)).Mul(decimal.New(100, 0))
-			if delta.GreaterThan(decimal.New(1, 0)) {
-				ticker.Delta = delta.Round(4)
-				deltaTickers = append(deltaTickers, ticker)
+			delta := decimal.Sum(ticker.SecondPrice, decimal.New(-1,0).Mul(ticker.FirstPrice))
+			ticker.Delta = delta
+			ticker.Percent = delta.Div(ticker.SecondPrice.Div(decimal.New(100, 0))).Round(4)
+			deltaTickers = append(deltaTickers, ticker)
 			}
 		}
-	}
 	return deltaTickers
 }
