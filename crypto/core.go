@@ -136,7 +136,7 @@ func findTickersWithDelta(commonTickers []*commonTicker) []*commonTicker {
 				ticker.Percent = delta.Div(ticker.FirstPrice.Div(decimal.New(100, 0))).Round(4)
 				deltaTickers = append(deltaTickers, ticker)
 			}
-		} else {
+		} else if ticker.SecondPrice.GreaterThan(ticker.FirstPrice) {
 			delta := decimal.Sum(ticker.SecondPrice, decimal.New(-1,0).Mul(ticker.FirstPrice))
 			ticker.Delta = delta
 			ticker.Percent = delta.Div(ticker.SecondPrice.Div(decimal.New(100, 0))).Round(4)
