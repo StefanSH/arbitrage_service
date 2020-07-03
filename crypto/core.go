@@ -29,7 +29,7 @@ func getTickersData(url string) ([]byte, error) {
 	return contents, nil
 }
 
-func findCommonTikckers(firstTickers, secondTickers []*Ticker) ([]*commonTicker, error) {
+func findCommonTikckers(firstTickers, secondTickers []Ticker) ([]*commonTicker, error) {
 	if len(firstTickers) == 0 || len(secondTickers) == 0 {
 		return nil, fmt.Errorf("one or two exhages data is nil")
 	}
@@ -37,60 +37,60 @@ func findCommonTikckers(firstTickers, secondTickers []*Ticker) ([]*commonTicker,
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
 	go func() {
-		sort.Slice(firstTickers, func(i, j int) bool {
-			ticksI := *firstTickers[i]
-			ticksJ := *firstTickers[j]
-			return ticksI.GetTickName() < ticksJ.GetTickName()
-		})
+		firstTickers = sortSlice(firstTickers)
 		wg.Done()
 	}()
 	go func() {
-		sort.Slice(secondTickers, func(i, j int) bool {
-			ticksI := *secondTickers[i]
-			ticksJ := *secondTickers[j]
-			return ticksI.GetTickName() < ticksJ.GetTickName()
-		})
+		secondTickers = sortSlice(secondTickers)
 		wg.Done()
 	}()
 	wg.Wait()
 	return compare(firstTickers, secondTickers), nil
 }
 
-func compare(ticks1, ticks2 []*Ticker) []*commonTicker {
+func sortSlice(t []Ticker)  []Ticker {
+	sort.Slice(t, func(i, j int) bool {
+		return t[j].GetTickName() < t[j].GetTickName()
+	})
+	return t
+}
+
+func compare(ticks1, ticks2 []Ticker) []*commonTicker {
 	common := make([]*commonTicker, 0)
 	if len(ticks1) > len(ticks2) {
 		for i := range ticks1 {
-			t1 := *ticks1[i]
 			for j := range ticks2 {
-				t2 := *ticks2[j]
-				if t1.GetTickName() == t2.GetTickName() {
-					firstPrice, _ := decimal.NewFromString(t1.GetPrice())
-					secondPrice, _ := decimal.NewFromString(t2.GetPrice())
-					common = append(common, &commonTicker{
-						Name:     t1.GetTickName(),
-						FirstPrice: firstPrice,
-						SecondPrice:  secondPrice})
+				commonTicker := setCommonTicker(ticks1[i], ticks2[j])
+				if commonTicker != nil {
+					common = append(common, commonTicker)
 				}
 			}
 		}
 	} else {
 		for i := range ticks2 {
-			t2 := *ticks2[i]
 			for j := range ticks1 {
-				t1 := *ticks1[j]
-				if t1.GetTickName() == t2.GetTickName() {
-					firstPrice, _ := decimal.NewFromString(t1.GetPrice())
-					secondPrice, _ := decimal.NewFromString(t2.GetPrice())
-					common = append(common, &commonTicker{
-						Name:     t1.GetTickName(),
-						FirstPrice: firstPrice,
-						SecondPrice:  secondPrice})
+				commonTicker := setCommonTicker(ticks2[i], ticks1[j])
+				if commonTicker != nil {
+					common = append(common, commonTicker)
 				}
+
 			}
 		}
 	}
 
 	return common
+}
+
+func setCommonTicker(tick1, tick2 Ticker) *commonTicker {
+	if tick1.GetTickName() == tick2.GetTickName() {
+		firstPrice, _ := decimal.NewFromString(tick1.GetPrice())
+		secondPrice, _ := decimal.NewFromString(tick2.GetPrice())
+		return &commonTicker{
+			Name:        tick1.GetTickName(),
+			FirstPrice:  firstPrice,
+			SecondPrice: secondPrice}
+	}
+	return nil
 }
 
 func NewTickerFromName(name string) (Ticker, error) {
@@ -104,20 +104,20 @@ func NewTickerFromName(name string) (Ticker, error) {
 	}
 }
 
-func typeCast(i interface{}) []*Ticker {
+func typeCast(i interface{}) []Ticker {
 	switch i.(type) {
 	case []*OkTicker:
-		result := make([]*Ticker, 0)
+		result := make([]Ticker, 0)
 		for _, tick := range i.([]*OkTicker) {
 			ticker := Ticker(tick)
-			result = append(result, &ticker)
+			result = append(result, ticker)
 		}
 		return result
 	case []*BinTicker:
-		result := make([]*Ticker, 0)
+		result := make([]Ticker, 0)
 		for _, tick := range i.([]*BinTicker) {
 			ticker := Ticker(tick)
-			result = append(result, &ticker)
+			result = append(result, ticker)
 		}
 		return result
 	default:

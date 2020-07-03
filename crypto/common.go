@@ -26,7 +26,7 @@ func FindWithDelta(f func(w http.ResponseWriter, r *http.Request)) func(w http.R
 		log.SetFormatter(formatter)
 		f(w, r)
 
-		exchanges := make(map[string]chan []*Ticker, 0)
+		exchanges := make(map[string]chan []Ticker, 0)
 		q := r.URL.Query()
 
 		firstEx := q.Get("first")
@@ -56,8 +56,8 @@ func FindWithDelta(f func(w http.ResponseWriter, r *http.Request)) func(w http.R
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
-				ch := make(chan []*Ticker, 1)
-				tickers := make([]*Ticker, 0)
+				ch := make(chan []Ticker, 1)
+				tickers := make([]Ticker, 0)
 				tickers = append(tickers, typeCast(ticksData)...)
 				if len(tickers) == 0 {
 					http.Error(w, "invalid data type", http.StatusInternalServerError)
