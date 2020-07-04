@@ -37,22 +37,21 @@ func findCommonTikckers(firstTickers, secondTickers []Ticker) ([]*commonTicker, 
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
 	go func() {
-		firstTickers = sortSlice(firstTickers)
+		sortSlice(firstTickers)
 		wg.Done()
 	}()
 	go func() {
-		secondTickers = sortSlice(secondTickers)
+		sortSlice(secondTickers)
 		wg.Done()
 	}()
 	wg.Wait()
 	return compare(firstTickers, secondTickers), nil
 }
 
-func sortSlice(t []Ticker)  []Ticker {
+func sortSlice(t []Ticker)  {
 	sort.Slice(t, func(i, j int) bool {
-		return t[j].GetTickName() < t[j].GetTickName()
+		return t[i].GetTickName() < t[j].GetTickName()
 	})
-	return t
 }
 
 func compare(ticks1, ticks2 []Ticker) []*commonTicker {
